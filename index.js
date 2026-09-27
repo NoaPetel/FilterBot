@@ -15,7 +15,7 @@ const SPAM_CHANNEL_ID = process.env.SPAM_CHANNEL_ID;
 // BOT READY
 // ============================================================
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log('========================================');
     console.log('🤖 BOT CONNECTÉ');
     console.log(`Nom    : ${client.user.tag}`);
