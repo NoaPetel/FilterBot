@@ -53,47 +53,77 @@ client.on('messageCreate', async (message) => {
     // 2. VÉRIFIER LES MENTIONS
     // --------------------------------------------------------
 
-    console.log(`👥 Nombre de mentions utilisateur : ${message.mentions.users.size}`);
+    const hasUserMentions = message.mentions.users.size > 0;
+    const hasEveryoneMention = message.mentions.everyone;
 
-    if (message.mentions.users.size === 0) {
-        console.log('⏭️ IGNORÉ → aucune mention utilisateur');
+    console.log(
+        `👥 Nombre de mentions utilisateur : ${message.mentions.users.size}`
+    );
+
+    console.log(
+        `📢 Mention @everyone : ${hasEveryoneMention ? 'OUI' : 'NON'}`
+    );
+
+    // Aucun type de mention
+    if (!hasUserMentions && !hasEveryoneMention) {
+        console.log('⏭️ IGNORÉ → aucune mention utilisateur ou @everyone');
         return;
     }
 
-    console.log('✅ Au moins une mention détectée');
+    console.log('✅ Mention détectée');
 
     // --------------------------------------------------------
-    // 3. RETIRER LES MENTIONS DU CONTENU
+    // 3. RETIRER LES MENTIONS UTILISATEURS ET @everyone
     // --------------------------------------------------------
 
     const contentWithoutMentions = message.content
+        // Mentions utilisateurs : <@123456789> ou <@!123456789>
         .replace(/<@!?\d+>/g, '')
+
+        // Mention @everyone
+        .replace(/@everyone/g, '')
+
         .trim();
 
-    console.log(`🔍 Contenu après suppression des mentions : "${contentWithoutMentions}"`);
+    console.log(
+        `🔍 Contenu après suppression des mentions : "${contentWithoutMentions}"`
+    );
 
     // --------------------------------------------------------
     // 4. VÉRIFIER QU'IL N'Y A QUE DES MENTIONS
     // --------------------------------------------------------
 
     if (contentWithoutMentions.length > 0) {
-        console.log('⏭️ IGNORÉ → le message contient du texte supplémentaire');
+        console.log(
+            '⏭️ IGNORÉ → le message contient du texte supplémentaire'
+        );
         return;
     }
 
     console.log('🚨 MESSAGE DE SPAM DÉTECTÉ');
+
     console.log(
         `👤 Auteur : ${message.author.tag} (${message.author.id})`
     );
 
-    console.log(
-        `🎯 Mentions : ${[...message.mentions.users.values()]
-            .map(user => `${user.tag} (${user.id})`)
-            .join(', ')}`
-    );
+    // --------------------------------------------------------
+    // 5. AFFICHER LES MENTIONS
+    // --------------------------------------------------------
+
+    const mentionedUsers = [...message.mentions.users.values()]
+        .map(user => `${user.tag} (${user.id})`)
+        .join(', ');
+
+    if (mentionedUsers) {
+        console.log(`🎯 Mentions utilisateurs : ${mentionedUsers}`);
+    }
+
+    if (hasEveryoneMention) {
+        console.log('🎯 Mention : @everyone');
+    }
 
     // --------------------------------------------------------
-    // 5. RÉCUPÉRER LE CHANNEL DE DESTINATION
+    // 6. RÉCUPÉRER LE CHANNEL DE DESTINATION
     // --------------------------------------------------------
 
     try {
@@ -114,43 +144,62 @@ client.on('messageCreate', async (message) => {
         );
 
         if (!targetChannel.isTextBased()) {
-            console.error('❌ ERREUR → le salon de destination n\'est pas textuel');
+            console.error(
+                '❌ ERREUR → le salon de destination n\'est pas textuel'
+            );
             return;
         }
 
         // ----------------------------------------------------
-        // 6. CONSTRUIRE LE MESSAGE
+        // 7. CONSTRUIRE LE MESSAGE
         // ----------------------------------------------------
 
-        const mentionedUsers = [...message.mentions.users.values()]
-            .map(user => `<@${user.id}>`)
-            .join(' ');
+        const mentions = [];
+
+        // Ajouter @everyone si présent
+        if (hasEveryoneMention) {
+            mentions.push('@everyone');
+        }
+
+        // Ajouter les utilisateurs mentionnés
+        if (hasUserMentions) {
+            mentions.push(
+                ...[...message.mentions.users.values()]
+                    .map(user => `<@${user.id}>`)
+            );
+        }
 
         const spamMessage =
-            `La pétasse <@${message.author.id}> spam : ${mentionedUsers}`;
+            `La pétasse <@${message.author.id}> spam : ${mentions.join(' ')}`;
 
         console.log(`📝 Message à envoyer : "${spamMessage}"`);
 
         // ----------------------------------------------------
-        // 7. ENVOYER LE MESSAGE
+        // 8. ENVOYER LE MESSAGE
         // ----------------------------------------------------
 
-        console.log('📤 Envoi du message dans le salon central...');
+        console.log(
+            '📤 Envoi du message dans le salon central...'
+        );
 
         await targetChannel.send({
             content: spamMessage,
+
             allowedMentions: {
                 users: [
                     message.author.id,
                     ...message.mentions.users.keys()
-                ]
+                ],
+
+                // Autoriser la notification @everyone
+                parse: hasEveryoneMention ? ['everyone'] : []
             }
         });
 
         console.log('✅ Message envoyé avec succès');
 
         // ----------------------------------------------------
-        // 8. SUPPRIMER LE MESSAGE ORIGINAL
+        // 9. SUPPRIMER LE MESSAGE ORIGINAL
         // ----------------------------------------------------
 
         console.log(
@@ -210,4 +259,3 @@ process.on('uncaughtException', (error) => {
 console.log('🔌 Connexion à Discord...');
 
 client.login(process.env.DISCORD_TOKEN);
-
